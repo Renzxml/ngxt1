@@ -1,48 +1,47 @@
 <?php
 // Error reporting
 ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
-
-// Prevent multiple session starts
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
 
 // Set timezone
 date_default_timezone_set('Asia/Manila');
 
-// Define DB constants only if not already defined
-if (!defined('db_host')) define('db_host', 'localhost');
-if (!defined('db_user')) define('db_user', 'oubomnof_ngxt');
-if (!defined('db_pass')) define('db_pass', 'ngxt_pass');
-if (!defined('db_name')) define('db_name', 'oubomnof_ngxt_db');
+// Detect if running on localhost
+$is_localhost = in_array($_SERVER['SERVER_NAME'], ['localhost', '127.0.0.1']) || str_contains(php_uname(), 'Windows');
 
-
-// Declare class only if it doesn't already exist
+// Declare class if not already declared
 if (!class_exists('db_connect')) {
     class db_connect {
-        public $host = db_host;
-        public $user = db_user;
-        public $pass = db_pass;
-        public $name = db_name;
         public $conn;
         public $error;
 
         public function connect() {
-            $this->conn = new mysqli($this->host, $this->user, $this->pass, $this->name);
+            global $is_localhost;
 
-            // Set timezone for MySQL session
-            mysqli_query($this->conn, "SET time_zone = '+08:00'");
+            // Localhost credentials
+            if ($is_localhost) {
+                $host = 'localhost';
+                $user = 'root';
+                $pass = '';
+                $name = 'ngxt_db';
+            } else {
+                // Hosting credentials
+                $host = 'localhost'; // Or actual DB host from your provider if different
+                $user = 'oubomnof_ngxt';
+                $pass = 'ngxt_pass';
+                $name = 'oubomnof_ngxt_db';
+            }
 
-            if (!$this->conn || $this->conn->connect_error) {
-                $this->error = "Fatal Error: Can't connect to database. " . $this->conn->connect_error;
+            $this->conn = @new mysqli($host, $user, $pass, $name);
+
+            if ($this->conn->connect_error) {
+                $this->error = "DB Connection failed: " . $this->conn->connect_error;
                 return false;
             }
 
+            $this->conn->query("SET time_zone = '+08:00'");
             return true;
         }
     }
 }
-
 ?>

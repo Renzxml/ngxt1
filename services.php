@@ -10,9 +10,9 @@ $result = mysqli_query($conn, $query);
         $id = $row['svs_id'];
         $title = $row['svs_title'] ?? 'Default Title';
         $description = $row['svs_description'] ?? 'Default description text.';
-        $logo = $row['svs_logo'] ?? 'default.png';
+        $logo = $row['svs_logo'] ?? 'default.png'; // This should now be a full Cloudinary URL
         ?>
-            <div class="card" style="background-image: url('./admin/uploads/<?php echo htmlspecialchars($logo); ?>'); background-size: cover; background-position: center;">
+        <div class="card" style="background-image: url('<?php echo htmlspecialchars($logo); ?>'); background-size: cover; background-position: center;">
             <p class="heading" style="
                color: white;
                margin: auto;
@@ -24,7 +24,7 @@ $result = mysqli_query($conn, $query);
                border-radius: 10px;
                border: 1px solid rgba(255, 255, 255, 0.3);
                ">
-             <?php echo htmlspecialchars($title); ?>
+                <?php echo htmlspecialchars($title); ?>
             </p>
             <button class="card-btn" onclick="openServiceGallery(<?= $id ?>)">+</button>
             <div class="card-modal">
@@ -33,6 +33,8 @@ $result = mysqli_query($conn, $query);
         </div>
     <?php endwhile; ?>
 </div>
+
+
 
 <!-- Modal Container for Service Gallery -->
 <div id="serviceGalleryModal" class="service-gallery-modal">
@@ -95,6 +97,7 @@ $result = mysqli_query($conn, $query);
     function closeServiceGallery() {
         document.getElementById('serviceGalleryModal').style.display = 'none';
         document.body.style.overflow = 'auto';
+        location.reload(); // Reload to refresh the gallery
     }
     
     // Close modal when clicking outside content

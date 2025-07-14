@@ -1,28 +1,49 @@
 <?php
-require_once '../includes/db_config.php';
+include 'header.php'; // Includes $db and $conn
 
-$db = new db_connect();
-if (!$db->connect()) {
-    die('DB connection failed: ' . $db->error);
-}
+$db = new db_class();
 $conn = $db->conn;
-
 
 if (!isset($_POST['media_path'])) {
     echo "No media specified.";
     exit;
 }
 
-$path = $_POST['media_path'];
-$filename = basename($path);
+$cloudinaryUrl = $_POST['media_path'];
 
-// Delete from DB (gallery_tbl)
-mysqli_query($conn, "DELETE FROM gallery_tbl WHERE gallery_image = '$filename'");
+// Step 1: Fetch public_id from the database
+$stmt = $conn->prepare("SELECT cloudinary_public_id FROM gallery_tbl WHERE gallery_image = ?");
+$stmt->bind_param("s", $cloudinaryUrl);
+$stmt->execute();
+$result = $stmt->get_result();
 
-// Delete file from server
-if (file_exists($path)) {
-    unlink($path);
-    echo "Media deleted successfully.";
-} else {
-    echo "File not found, but database record removed.";
+if (!$result || $result->num_rows === 0) {
+    echo "Media not found in database.";
+    exit;
 }
+
+$row = $result->fetch_assoc();
+$publicId = $row['cloudinary_public_id'];
+
+// Step 2: Determine resource type based on file extension
+$ext = strtolower(pathinfo($cloudinaryUrl, PATHINFO_EXTENSION));
+$resourceType = in_array($ext, ['mp4', 'webm', 'ogg']) ? 'video' : 'image';
+
+// Step 3: Delete from Cloudinary
+try {
+    $uploadApi = new \Cloudinary\Api\Upload\UploadApi();
+    $uploadApi->destroy($publicId, [
+        'resource_type' => $resourceType,
+        'invalidate' => true
+    ]);
+
+    // Step 4: Delete from database
+    $deleteStmt = $conn->prepare("DELETE FROM gallery_tbl WHERE cloudinary_public_id = ?");
+    $deleteStmt->bind_param("s", $publicId);
+    $deleteStmt->execute();
+
+    echo "Deleted!";
+} catch (Exception $e) {
+    echo "Cloudinary deletion failed: " . $e->getMessage();
+}
+?>

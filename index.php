@@ -10,13 +10,15 @@
     <div class="swiper mySwiper">
       <div class="swiper-wrapper">
         <?php
-        $query = "SELECT pcp_image FROM project_cover_photo_tbl";
-        $result = mysqli_query($conn, $query);
-        while ($row = mysqli_fetch_assoc($result)) {
-          $imagePath = 'assets/pcp_images/' . $row['pcp_image'];
-          echo '<div class="swiper-slide"><img src="' . htmlspecialchars($imagePath) . '" alt="Slide Image" /></div>';
-        }
-        ?>
+          $query = "SELECT pcp_image FROM project_cover_photo_tbl";
+          $result = mysqli_query($conn, $query);
+          while ($row = mysqli_fetch_assoc($result)) {
+            // Use the Cloudinary URL directly
+            $imageURL = $row['pcp_image'];
+            echo '<div class="swiper-slide"><img src="' . htmlspecialchars($imageURL) . '" alt="Slide Image" /></div>';
+          }
+          ?>
+
       </div>
       <div class="swiper-pagination"></div>
     </div>

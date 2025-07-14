@@ -3,39 +3,94 @@ include 'header.php';
 
 // Handle ADD
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $title = $_POST['svs_title'];
-    $desc = $_POST['svs_description'];
+    $title = mysqli_real_escape_string($conn, $_POST['svs_title']);
+    $desc  = mysqli_real_escape_string($conn, $_POST['svs_description']);
 
-    // Handle logo upload
     $logo = '';
+    $cloudinary_public_id = null;
+
     if (isset($_FILES['svs_logo']) && $_FILES['svs_logo']['name'] != '') {
-        $logo = basename($_FILES['svs_logo']['name']);
-        move_uploaded_file($_FILES['svs_logo']['tmp_name'], "uploads/" . $logo);
+        $logo_folder = "uploads/gallery/services_images/";
+        if (!is_dir($logo_folder)) mkdir($logo_folder, 0777, true);
+
+        $logo_ext = strtolower(pathinfo($_FILES['svs_logo']['name'], PATHINFO_EXTENSION));
+        $logo_name = time() . '_' . uniqid() . '.' . $logo_ext;
+        $logo_local_path = $logo_folder . $logo_name;
+
+        if (move_uploaded_file($_FILES['svs_logo']['tmp_name'], $logo_local_path)) {
+            // Upload to Cloudinary
+            $cloudinary = $db->uploadToCloudinary($logo_local_path, 'services_image');
+
+            if ($cloudinary['success']) {
+                $logo = $cloudinary['url'];
+                $cloudinary_public_id = $cloudinary['cloudinary_public_id'];
+                unlink($logo_local_path); // Delete local file
+            } else {
+                $_SESSION['swal'] = [
+                    'title' => 'Upload Failed',
+                    'text'  => 'Cloudinary: ' . $cloudinary['message'],
+                    'icon'  => 'error'
+                ];
+                header("Location: services_ctrl.php");
+                exit;
+            }
+        }
     }
 
-    // Only save title, description, and logo
-    mysqli_query($conn, "INSERT INTO services_tbl (svs_title, svs_description, svs_logo) VALUES ('$title', '$desc', '$logo')");
-    $_SESSION['swal'] = ['title' => 'Added!', 'text' => 'Service added successfully.', 'icon' => 'success'];
+    // Insert into database
+    $stmt = $conn->prepare("INSERT INTO services_tbl (svs_title, svs_description, svs_logo, cloudinary_logo_public_id) VALUES (?, ?, ?, ?)");
+    $stmt->bind_param("ssss", $title, $desc, $logo, $cloudinary_public_id);
+    $stmt->execute();
+    $stmt->close();
+
+    $_SESSION['swal'] = [
+        'title' => 'Added!',
+        'text'  => 'Service added successfully.',
+        'icon'  => 'success'
+    ];
 
     header("Location: services_ctrl.php");
     exit;
 }
 
-// Handle DELETE
-if (isset($_GET['delete'])) {
-    $id = $_GET['delete'];
-    $row = mysqli_fetch_assoc(mysqli_query($conn, "SELECT svs_logo FROM services_tbl WHERE svs_id=$id"));
 
-    // Delete logo
-    if ($row && file_exists("uploads/" . $row['svs_logo'])) {
-        unlink("uploads/" . $row['svs_logo']);
+
+
+    if (isset($_GET['delete'])) {
+        $id = intval($_GET['delete']);
+
+        // Fetch logo URL and Cloudinary public ID
+        $row = mysqli_fetch_assoc(mysqli_query($conn, "SELECT svs_logo, cloudinary_logo_public_id FROM services_tbl WHERE svs_id = $id"));
+
+        // Delete logo from Cloudinary
+        if (!empty($row['cloudinary_logo_public_id'])) {
+            try {
+                $uploadApi = new \Cloudinary\Api\Upload\UploadApi();
+                $uploadApi->destroy($row['cloudinary_logo_public_id'], [
+                    'resource_type' => 'image'
+                ]);
+            } catch (Exception $e) {
+                // Optional: log or handle the Cloudinary error
+            }
+        }
+
+        // Delete record from database
+        mysqli_query($conn, "DELETE FROM services_tbl WHERE svs_id = $id");
+
+        $_SESSION['swal'] = [
+            'title' => 'Deleted!',
+            'text'  => 'Service and logo deleted successfully.',
+            'icon'  => 'success'
+        ];
+
+        header("Location: services_ctrl.php");
+        exit;
     }
 
-    mysqli_query($conn, "DELETE FROM services_tbl WHERE svs_id=$id");
-    $_SESSION['swal'] = ['title' => 'Deleted!', 'text' => 'Service deleted successfully.', 'icon' => 'success'];
-    header("Location: services_ctrl.php");
-    exit;
-}
+
+
+
+
 ?>
 <!-- <link rel="stylesheet" href="../assets/admin-style.css" /> -->
 <style>
@@ -258,7 +313,7 @@ body {
         ob_start();
         ?>
         <div class="service-card">
-            <img src="uploads/<?= htmlspecialchars($row['svs_logo']) ?>" class="card-logo" alt="Logo">
+            <img src="<?= htmlspecialchars($row['svs_logo']) ?>" class="card-logo" alt="Logo">
             <div class="card-title"><?= htmlspecialchars($row['svs_title']) ?></div>
             <div class="card-desc"><?= htmlspecialchars($row['svs_description']) ?></div>
             <?php if (count($gallery_images)): ?>

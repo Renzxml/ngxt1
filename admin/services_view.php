@@ -16,7 +16,12 @@ if (!$data) {
 }
 
 $gallery_data = [];
-$result_gallery = mysqli_query($conn, "SELECT * FROM gallery_tbl WHERE svs_id = $id ORDER BY created_at DESC");
+$archive = "not";
+$stmt = $conn->prepare("SELECT * FROM gallery_tbl WHERE svs_id = ? AND archive = ? ORDER BY created_at DESC");
+$stmt->bind_param("is", $id, $archive);
+$stmt->execute();
+$result_gallery = $stmt->get_result();
+
 while ($row = mysqli_fetch_assoc($result_gallery)) {
     $gallery_data[] = [
         'glr_title' => $row['glr_title'],
@@ -106,6 +111,23 @@ while ($row = mysqli_fetch_assoc($result_gallery)) {
             color: #007bff;
         }
 
+        .delete-btn {
+            background: #dc3545;
+            color: #fff;
+            border: none;
+            padding: 8px 14px;
+            margin: 12px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            align-self: flex-end;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .delete-btn:hover {
+            background: #b52a38;
+        }
+
+
          .swal2-container {
         z-index: 3000 !important;
     }
@@ -150,7 +172,10 @@ while ($row = mysqli_fetch_assoc($result_gallery)) {
                     <div class="service-description"><?= htmlspecialchars($img['glr_description']) ?></div>
                 </div>
             </div>
+            <!-- Delete Button -->
+            <button class="delete-btn" onclick="deleteMedia('<?= addslashes($file_url) ?>', event)">Delete</button>
         </div>
+
     <?php endforeach; ?>
 </div>
 
@@ -256,6 +281,39 @@ while ($row = mysqli_fetch_assoc($result_gallery)) {
         content.innerHTML = '';
         modal.style.display = 'none';
     }
+
+
+    function deleteMedia(fileUrl, event) {
+        event.stopPropagation(); // Prevent triggering the fullscreen modal
+
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "This will delete the media to Cloudinary's Archived folder.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, delete it!',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch('services_delete_media.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: 'media_path=' + encodeURIComponent(fileUrl)
+                })
+                .then(response => response.text())
+                .then(msg => {
+                    Swal.fire('Deleted!', msg, 'success').then(() => location.reload());
+                })
+                .catch(err => {
+                    Swal.fire('Error', 'Failed to delete media.', 'error');
+                });
+            }
+        });
+    }
+
+
 
     document.getElementById('fullscreenImageModal').addEventListener('click', function(e) {
         if (e.target === this) closeFullscreenImage();

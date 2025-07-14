@@ -81,29 +81,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['pcp_image'])) {
     }
 
     if (move_uploaded_file($image['tmp_name'], $targetFile)) {
-        $insert = $conn->prepare("INSERT INTO project_cover_photo_tbl (pcp_title, pcp_image, cd_id) VALUES (?, ?, ?)");
-        $insert->bind_param("ssi", $pcpTitle, $newFileName, $cd_id);
-        if ($insert->execute()) {
-            echo <<<JS
-            <script>
-            Swal.fire({
-                icon: 'success',
-                title: 'Success',
-                text: 'Image uploaded and saved successfully.',
-                confirmButtonText: 'OK'
-            }).then(() => {
-                window.location.href = window.location.href; // Reload page
-            });
-            </script>
-            JS;
+        // Upload to Cloudinary (cover_photo category)
+        $cloudinary = $db->uploadToCloudinary($targetFile, 'cover_photo');
+
+        if ($cloudinary['success']) {
+            $cloudinary_url = $cloudinary['url'];
+            $cloudinary_public_id = $cloudinary['cloudinary_public_id'];
+
+            unlink($targetFile); // Delete local copy after successful upload
+
+            // Insert into database
+            $insert = $conn->prepare("INSERT INTO project_cover_photo_tbl (pcp_title, pcp_image, cloudinary_public_id, cd_id) VALUES (?, ?, ?, ?)");
+            $insert->bind_param("sssi", $pcpTitle, $cloudinary_url, $cloudinary_public_id, $cd_id);
+
+            if ($insert->execute()) {
+                echo <<<JS
+                <script>
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: 'Image uploaded and saved successfully.',
+                    confirmButtonText: 'OK'
+                }).then(() => {
+                    window.location.href = window.location.href;
+                });
+                </script>
+                JS;
+            } else {
+                $errorMsg = $conn->error;
+                echo <<<JS
+                <script>
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Database Error',
+                    text: 'Database insert failed: {$errorMsg}',
+                    confirmButtonText: 'OK'
+                });
+                </script>
+                JS;
+            }
         } else {
-            $errorMsg = $conn->error;
+            $errorMsg = $cloudinary['message'];
             echo <<<JS
             <script>
             Swal.fire({
                 icon: 'error',
-                title: 'Database Error',
-                text: 'Database insert failed: {$errorMsg}',
+                title: 'Cloudinary Upload Failed',
+                text: '{$errorMsg}',
                 confirmButtonText: 'OK'
             });
             </script>
@@ -121,6 +145,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['pcp_image'])) {
         </script>
         JS;
     }
+
+
 }
 
 ?>
@@ -162,12 +188,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['pcp_image'])) {
                 <div class="col-lg-4 col-md-5 mb-4">
                     <div class="card h-100 shadow-sm d-flex align-items-center justify-content-center">
                         <img 
-                            src="../assets/pcp_images/<?= htmlspecialchars($imageRow['pcp_image']) ?>" 
+                            src="<?= htmlspecialchars($imageRow['pcp_image']) ?>" 
                             class="card-img-top" 
-                            alt="<?= htmlspecialchars($imageRow['pcp_title']) ?>" 
+                            alt="<?= htmlspecialchars($imageRow['pcp_title']) ?>"
                             style="height: 200px; object-fit: cover; cursor: pointer;"
-                            onclick="openFullscreenModal('../assets/pcp_images/<?= htmlspecialchars($imageRow['pcp_image']) ?>')"
-                        >
+                            onclick="openFullscreenModal('<?= htmlspecialchars($imageRow['pcp_image']) ?>')"
+                            />
+
                         <div class="card-body d-flex flex-column">
                             <h5 class="card-title text-center"><?= htmlspecialchars($imageRow['pcp_title']) ?></h5>
                             <div class="mt-auto text-center">
@@ -197,9 +224,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['pcp_image'])) {
 function openFullscreenModal(imgSrc) {
     const modal = document.getElementById('fullscreenModal');
     const modalImg = document.getElementById('fullscreenImg');
-    modalImg.src = imgSrc;
+    modalImg.src = imgSrc; // Already a full URL from Cloudinary
     modal.style.display = 'flex';
 }
+
 
 function closeFullscreenModal() {
     document.getElementById('fullscreenModal').style.display = 'none';
@@ -222,30 +250,45 @@ document.addEventListener('keydown', function(e) {
 
 </div>
 <?php
-// Handle deletion if a delete request is sent
+
+
 if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     $deleteId = (int)$_GET['delete'];
 
-    // Only process delete on first load, then redirect to avoid repeat on reload
-    // Get the image filename to delete the file
-    $stmtImg = $conn->prepare("SELECT pcp_image FROM project_cover_photo_tbl WHERE pcp_id = ? AND cd_id = ?");
-    $stmtImg->bind_param("ii", $deleteId, $cd_id);
+    // Fetch the image URL and Cloudinary public ID for the selected record
+    $stmtImg = $conn->prepare("SELECT pcp_image, cloudinary_public_id FROM project_cover_photo_tbl WHERE pcp_id = ?");
+    $stmtImg->bind_param("i", $deleteId);
     $stmtImg->execute();
     $resultImg = $stmtImg->get_result();
 
     if ($resultImg->num_rows > 0) {
         $rowImg = $resultImg->fetch_assoc();
-        $fileToDelete = '../assets/pcp_images/' . $rowImg['pcp_image'];
+        $cloudinaryPublicId = $rowImg['cloudinary_public_id'];
 
-        // Delete DB record
-        $stmtDel = $conn->prepare("DELETE FROM project_cover_photo_tbl WHERE pcp_id = ? AND cd_id = ?");
-        $stmtDel->bind_param("ii", $deleteId, $cd_id);
+        // 🧼 Delete from Cloudinary if public ID exists
+        if (!empty($cloudinaryPublicId)) {
+            $cloudDelete = $db->deleteFromCloudinary($cloudinaryPublicId, 'image'); // or 'auto'
+
+            if (!$cloudDelete['success']) {
+                echo <<<JS
+                <script>
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Cloudinary Delete Failed',
+                    text: '{$cloudDelete['message']}',
+                    confirmButtonText: 'OK'
+                });
+                </script>
+                JS;
+                exit;
+            }
+        }
+
+        // ✅ Delete the database record
+        $stmtDel = $conn->prepare("DELETE FROM project_cover_photo_tbl WHERE pcp_id = ?");
+        $stmtDel->bind_param("i", $deleteId);
 
         if ($stmtDel->execute()) {
-            if (file_exists($fileToDelete)) {
-                unlink($fileToDelete);
-            }
-            // Redirect after successful delete to avoid resubmission on reload
             echo <<<JS
             <script>
             Swal.fire({
@@ -260,26 +303,27 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
             JS;
             exit;
         } else {
+            $error = $conn->error;
             echo <<<JS
             <script>
             Swal.fire({
                 icon: 'error',
-                title: 'Delete Failed',
-                text: 'Failed to delete image from database.',
+                title: 'Database Error',
+                text: 'Failed to delete from database: {$error}',
                 confirmButtonText: 'OK'
             });
             </script>
             JS;
             exit;
         }
+
     } else {
-        // Redirect to page without delete param to prevent repeated alert
         echo <<<JS
         <script>
         Swal.fire({
             icon: 'error',
             title: 'Not Found',
-            text: 'Image not found or invalid ID.',
+            text: 'Image not found or already deleted.',
             confirmButtonText: 'OK'
         }).then(() => {
             window.location.href = window.location.pathname;
@@ -289,6 +333,8 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
         exit;
     }
 }
+
+
 ?>
 
 <script>

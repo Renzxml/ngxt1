@@ -5,26 +5,32 @@ $db = new db_class();
 $conn = $db->conn;
 
 $company = $db->getCompanyDetails();
-
-// Get service ID from URL
 $service_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
-// Fetch gallery items
-$service['title'] = 'Gallery';
-$service['gallery'] = [];
+$service = ['title' => 'Gallery', 'gallery' => []];
 
-$result = mysqli_query($conn, "SELECT * FROM gallery_tbl WHERE svs_id = $service_id");
+// Base Cloudinary URL (yours)
+$cloudBaseUrl = "https://res.cloudinary.com/dlrhffijd";
+
+// Query gallery data
+$result = mysqli_query($conn, "SELECT gallery_image FROM gallery_tbl WHERE svs_id = $service_id");
+
 if ($result && mysqli_num_rows($result) > 0) {
     while ($row = mysqli_fetch_assoc($result)) {
         if (!empty($row['gallery_image'])) {
-            $file = $row['gallery_image'];
-            $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+            $filename = $row['gallery_image'];
+            $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+            $basename = pathinfo($filename, PATHINFO_FILENAME);
+
             $is_video = in_array($ext, ['mp4', 'webm', 'ogg']);
 
+            $urlPath = $is_video
+                ? "$cloudBaseUrl/video/upload/uploads/gallery/videos/$basename.$ext"
+                : "$cloudBaseUrl/image/upload/uploads/gallery/images/$basename.$ext";
+
             $service['gallery'][] = [
-                'file' => $file,
                 'type' => $is_video ? 'video' : 'image',
-                'path' => $is_video ? "./admin/uploads/gallery/videos/$file" : "./admin/uploads/gallery/images/$file"
+                'path' => $urlPath
             ];
         }
     }
@@ -32,6 +38,7 @@ if ($result && mysqli_num_rows($result) > 0) {
     $service['title'] = 'Service Not Found';
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

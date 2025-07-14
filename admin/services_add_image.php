@@ -1,12 +1,11 @@
 <?php
-include 'header.php'; // includes DB $conn, session, and $db (from db_class)
+include 'header.php'; // includes DB $conn and $db object
 
 $upload_base_dir = __DIR__ . '/uploads/gallery/';
 $chunk_dir = $upload_base_dir . 'chunks/';
-
 if (!is_dir($chunk_dir)) mkdir($chunk_dir, 0777, true);
 
-// Check if Resumable.js params are present
+// Chunked Upload using Resumable.js
 if (isset($_REQUEST['resumableIdentifier'])) {
     $service_id = intval($_REQUEST['service_id'] ?? 0);
     $identifier = preg_replace('/[^0-9A-Za-z_-]/', '', $_REQUEST['resumableIdentifier']);
@@ -23,19 +22,19 @@ if (isset($_REQUEST['resumableIdentifier'])) {
     $final_file_name = time() . '_' . uniqid() . '.' . $file_ext;
     $final_file_path = $upload_dir . $final_file_name;
 
-    // Handle chunk check (GET)
+    // Check chunk (GET)
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         http_response_code(file_exists($chunk_file_path) ? 200 : 204);
         exit;
     }
 
-    // Handle chunk upload (POST)
+    // Upload chunk (POST)
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['file']['tmp_name'])) {
         move_uploaded_file($_FILES['file']['tmp_name'], $chunk_file_path);
         http_response_code(200);
     }
 
-    // Check if all chunks are uploaded
+    // Merge if complete
     $all_uploaded = true;
     for ($i = 1; $i <= $total_chunks; $i++) {
         if (!file_exists($chunk_dir . "chunk_{$identifier}_{$i}")) {
@@ -56,30 +55,31 @@ if (isset($_REQUEST['resumableIdentifier'])) {
         fclose($final);
 
         // Upload to Cloudinary
-        $cloudinary = $db->uploadToCloudinary($final_file_path);
+        $cloudinary = $db->uploadToCloudinary($final_file_path, $file_type);
         if ($cloudinary['success']) {
             $cloudinary_url = $cloudinary['url'];
+            $cloudinary_public_id = $cloudinary['cloudinary_public_id'] ?? null;
             $gallery_title = mysqli_real_escape_string($conn, $_POST['gallery_title'] ?? 'Untitled');
-            $gallery_desc = mysqli_real_escape_string($conn, $_POST['gallery_desc'] ?? '');
+            $gallery_desc  = mysqli_real_escape_string($conn, $_POST['gallery_desc'] ?? '');
 
-            $stmt = $conn->prepare("INSERT INTO gallery_tbl (svs_id, gallery_image, glr_title, glr_description, file_type) VALUES (?, ?, ?, ?, ?)");
-            $stmt->bind_param("issss", $service_id, $cloudinary_url, $gallery_title, $gallery_desc, $file_type);
+            $stmt = $conn->prepare("INSERT INTO gallery_tbl (svs_id, gallery_image, glr_title, glr_description, file_type, cloudinary_public_id, archive) VALUES (?, ?, ?, ?, ?, ?, 'not')");
+            $stmt->bind_param("isssss", $service_id, $cloudinary_url, $gallery_title, $gallery_desc, $file_type, $cloudinary_public_id);
+
             $stmt->execute();
             $stmt->close();
 
-            unlink($final_file_path); // Delete local file
+            unlink($final_file_path); // Clean up local file
             echo 'Upload complete';
         } else {
             echo 'Cloudinary Upload Failed: ' . $cloudinary['message'];
         }
-
         exit;
     }
 
     exit;
 }
 
-// Fallback: traditional form upload
+// Traditional form upload fallback
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['gallery_media'])) {
     $service_id     = intval($_POST['service_id']);
     $gallery_title  = mysqli_real_escape_string($conn, $_POST['gallery_title']);
@@ -103,11 +103,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['gallery_media'])) {
     }
 
     if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
-    if (!is_writable($upload_dir)) {
-        $_SESSION['swal'] = ['title' => 'Permission Error', 'text' => 'Upload folder is not writable.', 'icon' => 'error'];
-        header("Location: services_view.php?id=$service_id");
-        exit;
-    }
 
     $file_name = time() . '_' . uniqid() . '.' . $file_ext;
     $target_path = $upload_dir . $file_name;
@@ -118,27 +113,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['gallery_media'])) {
         exit;
     }
 
-    // Upload to Cloudinary
-    $cloudinary = $db->uploadToCloudinary($target_path);
-    if ($cloudinary['success']) {
-        $cloudinary_url = $cloudinary['url'];
+  // Upload to Cloudinary
+        $cloudinary = $db->uploadToCloudinary($target_path, $file_type);
 
-        $stmt = $conn->prepare("INSERT INTO gallery_tbl (svs_id, gallery_image, glr_title, glr_description, file_type) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("issss", $service_id, $cloudinary_url, $gallery_title, $gallery_desc, $file_type);
-        $stmt->execute();
-        $stmt->close();
+        if ($cloudinary['success']) {
+            $cloudinary_url = $cloudinary['url'];
+            $cloudinary_public_id = $cloudinary['cloudinary_public_id'] ?? null;
 
-        unlink($target_path); // Delete local copy
-        $_SESSION['swal'] = ['title' => 'Success', 'text' => ucfirst($file_type) . ' uploaded to Cloudinary.', 'icon' => 'success'];
-    } else {
-        $_SESSION['swal'] = ['title' => 'Cloudinary Upload Failed', 'text' => $cloudinary['message'], 'icon' => 'error'];
-    }
+            $stmt = $conn->prepare("INSERT INTO gallery_tbl (svs_id, gallery_image, glr_title, glr_description, file_type, cloudinary_public_id) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("isssss", $service_id, $cloudinary_url, $gallery_title, $gallery_desc, $file_type, $cloudinary_public_id);
+            $stmt->execute();
+            $stmt->close();
+
+            // Delete local file
+            unlink($target_path);
+
+            $_SESSION['swal'] = [
+                'title' => 'Success',
+                'text' => ucfirst($file_type) . ' uploaded to Cloudinary.',
+                'icon' => 'success'
+            ];
+        } else {
+            $_SESSION['swal'] = [
+                'title' => 'Cloudinary Upload Failed',
+                'text' => $cloudinary['message'],
+                'icon' => 'error'
+            ];
+        }
+
 
     header("Location: services_view.php?id=$service_id");
     exit;
 }
 
-// Not a POST request
+// Fallback for wrong access
 header("Location: services_ctrl.php");
 exit;
 ?>
