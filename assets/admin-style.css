@@ -1,0 +1,466 @@
+/*Header*/
+
+/* Header Layout */
+header {
+  background-color: transparent;
+  padding: 20px 15%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 1000;
+}
+
+/* Main Logo (Left Side) */
+header .logo1 img {
+  max-height: 30px;
+}
+
+/* Dropdown Container — placed with same horizontal padding (15%) from right */
+.dropdown {
+  position: fixed;
+  top: 20px;
+  right: 15%;
+  display: flex;
+  align-items: center;
+  z-index: 1100;
+  background: transparent; 
+  padding: 0;
+  margin: 0;
+  all: unset; 
+  display: flex;
+  gap: 6px;
+}
+
+
+/* Profile Icon + Arrow */
+.logo {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  gap: 6px;
+}
+
+.logo img {
+  max-height: 40px;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+
+.logo img:hover {
+  transform: scale(1.05);
+}
+
+.logo i {
+  font-size: 14px;
+  color: black;
+  transition: transform 0.2s;
+  margin-left: 35px; 
+  margin-top: -35px;
+}
+
+/* Dropdown Menu - vertically stacked */
+.dropdown-menu {
+  position: absolute;
+  top: 80%;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 0;
+  margin: 0;
+  min-width: 160px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: all 0.3s ease;
+  z-index: 1001;
+}
+
+
+.dropdown-menu.active {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+/* Menu Items */
+.dropdown-menu li {
+  padding: 10px 20px;
+}
+
+.dropdown-menu li a {
+  color: black;
+  text-decoration: none;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: background 0.2s ease;
+}
+
+.dropdown-menu li a:hover {
+  background-color: #F1002C;
+  color: white;
+  border-radius: 5px;
+}
+
+/* Logout icon */
+.logout-icon {
+  width: 18px;
+  height: 18px;
+}
+
+
+
+/*Index*/
+.container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding-top: 100px;
+  padding-bottom: 50px;
+}
+
+.container h2 {
+  font-size: 2rem;
+  font-weight: 600;
+  color: #333;
+  font-family: 'Poppins', sans-serif;
+  line-height: 1.6;
+}
+
+/* Edit button */
+.btn-warning {
+  background-color: #F1002C;
+  border-color: #000000;
+  color: white;
+  padding: 8px 16px;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
+}
+
+.btn-warning:hover {
+  background-color: #C80024;
+  border-color: #000000;
+}
+
+/* Card layout */
+.card {
+  border: none;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.card .row {
+  flex-wrap: wrap;
+}
+
+/* Company logo section */
+.card .col-md-4 {
+  background-color: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  border-right: 1px solid #ddd;
+}
+
+.card img {
+  max-height: 200px;
+  max-width: 100%;
+  object-fit: contain;
+  border-radius: 10px;
+}
+
+/* Company info */
+.card-body {
+  padding: 30px;
+}
+
+.card-title {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #212529;
+}
+
+.card-subtitle {
+  font-size: 1.1rem;
+  color: #6c757d;
+  margin-bottom: 15px;
+}
+
+.card-text {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #444;
+}
+
+.card-text strong {
+  color: #333;
+}
+
+/* Alert box for missing company data */
+.alert-warning {
+  font-size: 1rem;
+  padding: 15px;
+  border-radius: 10px;
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeeba;
+  margin-top: 20px;
+}
+
+/* Responsive padding for mobile */
+@media (max-width: 768px) {
+  .card .col-md-4 {
+    border-right: none;
+    border-bottom: 1px solid #ddd;
+  }
+}
+
+/* Edit details */
+.edit-company-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #f2f4f8;
+  padding: 40px 20px;
+  padding-top: 80px;
+  box-sizing: border-box;
+}
+
+/* Title */
+.edit-company-title {
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 30px;
+  text-align: center;
+  color: #333;
+}
+
+/* Form styling */
+.edit-company-form {
+  width: 100%;
+  max-width: 600px;
+  background: #fff;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* Input groups */
+.edit-company-group {
+  margin-bottom: 20px;
+}
+
+.edit-company-input,
+.edit-company-textarea {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-sizing: border-box;
+  transition: 0.3s ease;
+}
+
+.edit-company-input:focus,
+.edit-company-textarea:focus {
+  border-color: #007bff;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.edit-company-textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* Logo image preview */
+.edit-company-image-preview img {
+  max-height: 100px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+/* Small note */
+.edit-company-note {
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+/* Buttons */
+.edit-company-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.edit-company-btn-primary,
+.edit-company-btn-secondary {
+  padding: 10px 20px;
+  font-weight: 500;
+  border-radius: 6px;
+  text-decoration: none;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+.edit-company-btn-primary {
+  background-color: #007bff;
+}
+
+.edit-company-btn-primary:hover {
+  background-color: #0056b3;
+}
+
+.edit-company-btn-secondary {
+  background-color: #6c757d;
+}
+
+.edit-company-btn-secondary:hover {
+  background-color: #5a6268;
+}
+
+/*Services control*/
+.service-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  margin-top: 100px;
+  background: #f9f9f9;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  font-family: 'Poppins', sans-serif;
+}
+
+.service-heading {
+  font-size: 24px;
+  margin-bottom: 30px;
+  color: #333;
+  font-size: 2rem;
+  font-weight: 600;
+  color: #333;
+  font-family: 'Poppins', sans-serif;
+  line-height: 1.6;
+}
+
+.service-form {
+  background: #fff;
+  padding: 25px;
+  border-radius: 8px;
+  margin-bottom: 40px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  font-weight: 500;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.form-group input[type="text"],
+.form-group input[type="file"],
+.form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.current-logo {
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.form-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btn-submit,
+.btn-cancel {
+  padding: 10px 20px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 500;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-submit {
+  background-color: #28a745;
+}
+
+.btn-submit:hover {
+  background-color: #218838;
+}
+
+.btn-cancel {
+  background-color: #6c757d;
+}
+
+.btn-cancel:hover {
+  background-color: #5a6268;
+}
+
+/* Services table */
+.service-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #fff;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.service-table th,
+.service-table td {
+  padding: 14px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.service-table th {
+  background-color: #f1f1f1;
+  font-weight: 600;
+}
+
+.table-logo {
+  height: 50px;
+  border-radius: 4px;
+}
+
+.action-link {
+  color: #007bff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.action-link:hover {
+  text-decoration: underline;
+}

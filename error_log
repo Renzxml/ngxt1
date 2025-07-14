@@ -1,0 +1,13 @@
+[14-Jul-2025 02:29:08 UTC] PHP Warning:  session_start(): Session cannot be started after headers have already been sent in /home/oubomnof/public_html/ngxt.trial/includes/classes.php on line 3
+[14-Jul-2025 02:29:08 UTC] PHP Warning:  session_start(): Session cannot be started after headers have already been sent in /home/oubomnof/public_html/ngxt.trial/includes/db_config.php on line 9
+[14-Jul-2025 10:29:08 Asia/Manila] PHP Warning:  mysqli::__construct(): (HY000/1045): Access denied for user 'oubomnof/ngxt'@'localhost' (using password: YES) in /home/oubomnof/public_html/ngxt.trial/includes/db_config.php on line 33
+[14-Jul-2025 10:29:08 Asia/Manila] PHP Fatal error:  Uncaught Error: mysqli object is already closed in /home/oubomnof/public_html/ngxt.trial/includes/db_config.php:36
+Stack trace:
+#0 /home/oubomnof/public_html/ngxt.trial/includes/db_config.php(36): mysqli_query(Object(mysqli), 'SET time_zone =...')
+#1 /home/oubomnof/public_html/ngxt.trial/includes/classes.php(19): db_connect->connect()
+#2 /home/oubomnof/public_html/ngxt.trial/header.php(5): db_class->__construct()
+#3 /home/oubomnof/public_html/ngxt.trial/index.php(3): include('/home/oubomnof/...')
+#4 {main}
+  thrown in /home/oubomnof/public_html/ngxt.trial/includes/db_config.php on line 36
+[14-Jul-2025 02:29:28 UTC] PHP Warning:  session_start(): Session cannot be started after headers have already been sent in /home/oubomnof/public_html/ngxt.trial/includes/classes.php on line 3
+[14-Jul-2025 02:29:28 UTC] PHP Warning:  session_start(): Session cannot be started after headers have already been sent in /home/oubomnof/public_html/ngxt.trial/includes/db_config.php on line 9
