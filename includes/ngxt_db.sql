@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jul 13, 2025 at 01:06 PM
+-- Generation Time: Jul 14, 2025 at 10:00 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -73,16 +73,18 @@ CREATE TABLE `gallery_tbl` (
   `glr_description` varchar(255) NOT NULL,
   `gallery_image` varchar(255) NOT NULL,
   `file_type` varchar(20) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `cloudinary_public_id` varchar(255) DEFAULT NULL,
+  `archive` varchar(10) NOT NULL DEFAULT 'not'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `gallery_tbl`
 --
 
-INSERT INTO `gallery_tbl` (`id`, `svs_id`, `glr_title`, `glr_description`, `gallery_image`, `file_type`, `created_at`) VALUES
-(13, 3, 'valorantasgasg', 'sgsagas', '1752402037_6873887582467.mp4', 'video', '2025-07-13 10:20:37'),
-(14, 3, 'valorant', 'asgsagsasggas', '1752402731_68738b2b7babd.mp4', 'video', '2025-07-13 10:32:11');
+INSERT INTO `gallery_tbl` (`id`, `svs_id`, `glr_title`, `glr_description`, `gallery_image`, `file_type`, `created_at`, `cloudinary_public_id`, `archive`) VALUES
+(24, 7, 'image ', 'content', 'https://res.cloudinary.com/dlrhffijd/image/upload/v1752474171/uploads/Gallery/Images/vgy1iqfmukdgene2xbba.jpg', 'image', '2025-07-14 06:22:49', 'uploads/Gallery/Images/vgy1iqfmukdgene2xbba', 'not'),
+(25, 7, 'video', 'content', 'https://res.cloudinary.com/dlrhffijd/video/upload/v1752474224/uploads/Gallery/Videos/cx9jt6cyng42dfwovaxn.mp4', 'video', '2025-07-14 06:23:45', 'uploads/Gallery/Videos/cx9jt6cyng42dfwovaxn', 'not');
 
 -- --------------------------------------------------------
 
@@ -119,18 +121,6 @@ CREATE TABLE `profile_images_tbl` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `profile_images_tbl`
---
-
-INSERT INTO `profile_images_tbl` (`id`, `user_id`, `p_images`, `category`, `created_at`) VALUES
-(1, 2, '687340b4a8b80_516890076_1109136917754339_2986362504777430536_n.jpg', NULL, '2025-07-13 05:14:28'),
-(2, 2, '687341418710d_516890076_1109136917754339_2986362504777430536_n.jpg', NULL, '2025-07-13 05:16:49'),
-(3, 2, '2_20250713.jpg', NULL, '2025-07-13 05:18:53'),
-(4, 2, '2_20250713_687341c3ca85a.jpg', NULL, '2025-07-13 05:18:59'),
-(5, 2, '2_20250713_6873424973ae5.jpg', NULL, '2025-07-13 05:21:13'),
-(6, 2, '2_20250713_68734260901a5.jpg', NULL, '2025-07-13 05:21:36');
-
 -- --------------------------------------------------------
 
 --
@@ -141,15 +131,16 @@ CREATE TABLE `project_cover_photo_tbl` (
   `pcp_id` int(11) NOT NULL,
   `pcp_title` varchar(255) NOT NULL,
   `pcp_image` varchar(255) NOT NULL,
-  `cd_id` int(11) NOT NULL
+  `cd_id` int(11) NOT NULL,
+  `cloudinary_public_id` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `project_cover_photo_tbl`
 --
 
-INSERT INTO `project_cover_photo_tbl` (`pcp_id`, `pcp_title`, `pcp_image`, `cd_id`) VALUES
-(10, 'default background', 'ngxt_3_1139.jpg', 1);
+INSERT INTO `project_cover_photo_tbl` (`pcp_id`, `pcp_title`, `pcp_image`, `cd_id`, `cloudinary_public_id`) VALUES
+(3, 'again', 'https://res.cloudinary.com/dlrhffijd/image/upload/v1752473394/uploads/Gallery/cover_photos/pzya52vpaqklzxlqczuh.jpg', 1, 'uploads/Gallery/cover_photos/pzya52vpaqklzxlqczuh');
 
 -- --------------------------------------------------------
 
@@ -175,15 +166,18 @@ CREATE TABLE `services_tbl` (
   `svs_id` int(11) NOT NULL,
   `svs_title` varchar(255) DEFAULT NULL,
   `svs_description` text DEFAULT NULL,
-  `svs_logo` varchar(255) DEFAULT NULL
+  `svs_logo` varchar(255) DEFAULT NULL,
+  `cloudinary_logo_public_id` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `services_tbl`
 --
 
-INSERT INTO `services_tbl` (`svs_id`, `svs_title`, `svs_description`, `svs_logo`) VALUES
-(3, 'Bawat Pyesa', 'Munimuni', 'Screenshot 2025-07-13 124042.png');
+INSERT INTO `services_tbl` (`svs_id`, `svs_title`, `svs_description`, `svs_logo`, `cloudinary_logo_public_id`) VALUES
+(7, 'try', '123', 'https://res.cloudinary.com/dlrhffijd/image/upload/v1752473903/uploads/Gallery/services_images/cowqzdinha7zqwaenz8m.jpg', 'uploads/Gallery/services_images/cowqzdinha7zqwaenz8m'),
+(8, 'Services 2', '123', 'https://res.cloudinary.com/dlrhffijd/image/upload/v1752479817/uploads/Gallery/services_images/crtli7bjbx9tvgwp2nnd.jpg', 'uploads/Gallery/services_images/crtli7bjbx9tvgwp2nnd'),
+(9, 'services 3', '123', 'https://res.cloudinary.com/dlrhffijd/image/upload/v1752479841/uploads/Gallery/services_images/oyil2mebhloaxdbzgudg.jpg', 'uploads/Gallery/services_images/oyil2mebhloaxdbzgudg');
 
 -- --------------------------------------------------------
 
@@ -210,7 +204,7 @@ CREATE TABLE `users` (
 
 INSERT INTO `users` (`id`, `email`, `password`, `fname`, `lname`, `role_status`, `profile_pic`, `facebook`, `instagram`, `twitter`) VALUES
 (1, 'biokey.lockersystem@gmail.com', '$2y$10$zKCQb/J7OOlMZSZTHlnWx.Szyjo4QnkdXUCoAfdRsL23Z9Aa79qwq', 'Renzel', 'Rodriguez', 'partners', '', '', '', ''),
-(2, 'renzrodriguez23@gmail.com', '$2y$10$9ql6DOu98qez/Kdt32GVQO9CHrzVItXfcuHVSCGR7iQ5Zr4ZDEG3e', 'Renzel', 'Rodriguez', 'partners', 'profile_1752383205_R.jpg', 'm.me/renz', 'ig.me/renz', 'x.me/renz'),
+(2, 'renzrodriguez23@gmail.com', '$2y$10$9ql6DOu98qez/Kdt32GVQO9CHrzVItXfcuHVSCGR7iQ5Zr4ZDEG3e', 'Renzel', 'Rodriguez', 'partners', 'https://res.cloudinary.com/dlrhffijd/image/upload/v1752479462/uploads/Gallery/profile_photos/d89abx8wh8ks9iptr7hq.jpg', 'm.me/renz', 'ig.me/renz', 'x.me/renz'),
 (3, 'marklouis0santiago@gmail.com', '$2y$10$0Kl/oqXsTcA7k3829br6auuqjhb5p2xxBCiEhaFaSHVCRk.Q34JOy', 'Louis', 'Santiago', 'active', '', '', '', ''),
 (4, 'santiagomarklouis.bsit@gmail.com', '$2y$10$Ep7lUCYeLiw8AM52Dt67.euZ9QCjHZ0IiGz6hf3cSUZMHmPfGFf0C', 'mark', 'louis', 'partners', '', '', '', ''),
 (11, 'zoro@gmail.com', '$2y$10$iTx7Mc1tzFb.8F9hd8ft2OjJCch/Hmigq0jW186foGAWour2cHg4G', 'zoro', 'roronoa', 'partners', '', '', '', ''),
@@ -235,6 +229,12 @@ ALTER TABLE `profile_images_tbl`
   ADD KEY `user_id` (`user_id`);
 
 --
+-- Indexes for table `project_cover_photo_tbl`
+--
+ALTER TABLE `project_cover_photo_tbl`
+  ADD PRIMARY KEY (`pcp_id`);
+
+--
 -- Indexes for table `services_tbl`
 --
 ALTER TABLE `services_tbl`
@@ -254,19 +254,25 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `gallery_tbl`
 --
 ALTER TABLE `gallery_tbl`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
 
 --
 -- AUTO_INCREMENT for table `profile_images_tbl`
 --
 ALTER TABLE `profile_images_tbl`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+
+--
+-- AUTO_INCREMENT for table `project_cover_photo_tbl`
+--
+ALTER TABLE `project_cover_photo_tbl`
+  MODIFY `pcp_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `services_tbl`
 --
 ALTER TABLE `services_tbl`
-  MODIFY `svs_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `svs_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `users`
