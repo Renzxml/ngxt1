@@ -1,5 +1,4 @@
 <?php
-
 include "../includes/classes.php";
 
 // Account validation: Check if user is logged in and has the 'partner' role

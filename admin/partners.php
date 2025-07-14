@@ -83,10 +83,11 @@ h2 {
 <div class="partners-cards">
     <?php foreach ($users as $user): ?>
         <?php
-            $profilePath = !empty($user['profile_pic']) && file_exists("../uploads/" . $user['profile_pic'])
-                ? "../uploads/" . $user['profile_pic']
-                : "../uploads/default.png"; // default image fallback
-        ?>
+            $profilePath = !empty($user['profile_pic']) 
+                ? htmlspecialchars($user['profile_pic']) 
+                : 'https://res.cloudinary.com/YOUR_CLOUD_NAME/image/upload/v1/uploads/gallery/profile_photos/default.png';
+            ?>
+
         <div class="partner-card">
             <div class="cardprofile">
                 <div class="profile-pic">

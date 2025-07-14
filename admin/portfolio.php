@@ -1,40 +1,43 @@
 <?php
+
 include "header.php";
 
 if (!isset($_SESSION['admin_id'])) {
     die("Not logged in.");
 }
 
-require_once '../includes/db_config.php';
-$db = new db_connect();
-if (!$db->connect()) {
-    die("Database connection failed: " . $db->error);
-}
+$db = new db_class();  // ✅ must be db_class, not db_connect
 $conn = $db->conn;
+
 $user_id = $_SESSION['admin_id'];
 
 // Handle profile image upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_profile_image'])) {
-    $uploadDir = '../profile_uploads/';
     
-    if (!file_exists($uploadDir)) {
-        mkdir($uploadDir, 0777, true);
-    }
-    
-    $category = $_POST['category'];
-    $filename = uniqid() . '_' . basename($_FILES['profile_image']['name']);
-    $targetPath = $uploadDir . $filename;
-
-    if (move_uploaded_file($_FILES['profile_image']['tmp_name'], $targetPath)) {
-        $stmt = $conn->prepare("INSERT INTO profile_images_tbl (user_id, image_path, category) VALUES (?, ?, ?)");
-        $stmt->bind_param("iss", $user_id, $filename, $category);
-        $stmt->execute();
-        $message = "Image uploaded successfully.";
+    if (!isset($_FILES['profile_image']) || $_FILES['profile_image']['error'] !== UPLOAD_ERR_OK) {
+        $message = "Upload failed: Invalid file upload.";
     } else {
-        $error = error_get_last();
-        $message = "Upload failed: " . ($error['message'] ?? 'Unknown error');
+        $tmpPath = $_FILES['profile_image']['tmp_name'];
+
+        // Upload to Cloudinary
+        $uploadResult = $db->uploadToCloudinary($tmpPath, 'profile_photo');
+
+
+        if ($uploadResult['success']) {
+            $cloudinaryUrl = $uploadResult['url'];
+
+            // Insert Cloudinary image URL to DB
+            $stmt = $conn->prepare("INSERT INTO profile_images_tbl (user_id, image_path, category) VALUES (?, ?, ?)");
+            $stmt->bind_param("iss", $user_id, $cloudinaryUrl, $category);
+            $stmt->execute();
+
+            $message = "Image uploaded successfully to Cloudinary.";
+        } else {
+            $message = "Cloudinary upload failed: " . $uploadResult['message'];
+        }
     }
 }
+
 
 // Handle image deletion
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_profile_image'])) {
@@ -86,27 +89,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_profile_image'
 if (isset($_POST['update_profile'])) {
     $fname = $_POST['name'];
     $lname = $_POST['subname'];
-    $imgFilename = '';
-    $uploadDir = '../uploads/';
-
-    if (!file_exists($uploadDir)) {
-        mkdir($uploadDir, 0777, true);
-    }
-
-    if (!empty($_FILES['profile_img']['tmp_name'])) {
-        $imgFilename = 'profile_' . time() . '_' . basename($_FILES['profile_img']['name']);
-        $targetPath = $uploadDir . $imgFilename;
-        
-        if (!move_uploaded_file($_FILES['profile_img']['tmp_name'], $targetPath)) {
-            $error = error_get_last();
-            die("Failed to upload profile image: " . ($error['message'] ?? 'Unknown error'));
-        }
-    }
 
     try {
-        if (!empty($imgFilename)) {
+        $imgUrl = '';
+        
+        if (!empty($_FILES['profile_img']['tmp_name'])) {
+            // Upload to Cloudinary
+            $tmpPath = $_FILES['profile_img']['tmp_name'];
+            $uploadResult = $db->uploadToCloudinary($tmpPath, 'profile_photo');
+
+            if ($uploadResult['success']) {
+                $imgUrl = $uploadResult['url']; // Cloudinary URL
+            } else {
+                throw new Exception("Cloudinary upload failed: " . $uploadResult['message']);
+            }
+        }
+
+        // Update query
+        if (!empty($imgUrl)) {
             $stmt = $conn->prepare("UPDATE users SET fname = ?, lname = ?, profile_pic = ? WHERE id = ?");
-            $stmt->bind_param("sssi", $fname, $lname, $imgFilename, $user_id);
+            $stmt->bind_param("sssi", $fname, $lname, $imgUrl, $user_id);
         } else {
             $stmt = $conn->prepare("UPDATE users SET fname = ?, lname = ? WHERE id = ?");
             $stmt->bind_param("ssi", $fname, $lname, $user_id);
@@ -115,13 +117,14 @@ if (isset($_POST['update_profile'])) {
         if (!$stmt->execute()) {
             throw new Exception("Execute failed: " . $stmt->error);
         }
-        
+
         header("Location: " . $_SERVER['PHP_SELF']);
         exit;
     } catch (Exception $e) {
         die("Error updating profile: " . $e->getMessage());
     }
 }
+
 
 // Handle Facebook update
 if (isset($_POST['update_facebook'])) {
@@ -166,45 +169,44 @@ $social = $social_res ? $social_res->fetch_assoc() : [];
 
 
 
-// ✅ Handle Image Upload to profile_images_tbl (NO category)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_gallery'])) {
-  $uploadDir = 'uploads/profile_gallery/';
+    $category = "profile_image"; // to match your switch case
 
-  if (!file_exists($uploadDir)) {
-    mkdir($uploadDir, 0777, true);
-  }
+    if (!isset($_FILES['gallery_image']) || $_FILES['gallery_image']['error'] !== UPLOAD_ERR_OK) {
+        $message = "Upload failed: Invalid file upload.";
+    } else {
+        $tmpPath = $_FILES['gallery_image']['tmp_name'];
 
-  // Generate new filename: user_id + date today + original extension
-  $originalName = $_FILES['gallery_image']['name'];
-  $ext = pathinfo($originalName, PATHINFO_EXTENSION);
-  $dateStr = date('Ymd');
-  $newFilename = $user_id . '_' . $dateStr . '.' . $ext;
-  $targetPath = $uploadDir . $newFilename;
+        // Upload to Cloudinary via your db_class method
+        $uploadResult = $db->uploadToCloudinary($tmpPath, $category);
 
-  // If file exists, append a unique id to avoid overwrite
-  if (file_exists($targetPath)) {
-    $unique = uniqid();
-    $newFilename = $user_id . '_' . $dateStr . '_' . $unique . '.' . $ext;
-    $targetPath = $uploadDir . $newFilename;
-  }
+        if ($uploadResult['success']) {
+            $cloudinaryUrl = $uploadResult['url'];
 
-  if (move_uploaded_file($_FILES['gallery_image']['tmp_name'], $targetPath)) {
-    $stmt = $conn->prepare("INSERT INTO profile_images_tbl (user_id, p_images) VALUES (?, ?)");
-    $stmt->bind_param("is", $user_id, $newFilename);
-    $stmt->execute();
-    $message = "Image uploaded successfully.";
-  } else {
-    $error = error_get_last();
-    $message = "Upload failed: " . ($error['message'] ?? 'Unknown error');
-  }
+            $stmt = $conn->prepare("INSERT INTO profile_images_tbl (user_id, p_images) VALUES (?, ?)");
+            $stmt->bind_param("is", $user_id, $cloudinaryUrl);
+            $stmt->execute();
+
+            $message = "Image uploaded successfully to Cloudinary.";
+        } else {
+            $message = "Cloudinary upload failed: " . $uploadResult['message'];
+        }
+    }
 }
 
-// ✅ Handle Image Deletion
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_image'])) {
+    // Clean output buffer to prevent invalid JSON
+    if (ob_get_length()) ob_clean();
+    header('Content-Type: application/json');
+
     try {
         $image_id = intval($_POST['image_id']);
 
-        $stmt = $conn->prepare("SELECT image_path FROM profile_images_tbl WHERE id = ? AND user_id = ?");
+        if (!$image_id || !$user_id) {
+            throw new Exception("Missing image ID or user ID.");
+        }
+
+        $stmt = $conn->prepare("SELECT p_images FROM profile_images_tbl WHERE id = ? AND user_id = ?");
         $stmt->bind_param("ii", $image_id, $user_id);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -213,24 +215,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_image'])) {
             throw new Exception("Image not found or access denied.");
         }
 
-        $img = $result->fetch_assoc();
-        $img_path = 'uploads/profile_gallery' . $img['image_path'];
-
+        // No cloudinary deletion here — purely DB
         $stmt = $conn->prepare("DELETE FROM profile_images_tbl WHERE id = ? AND user_id = ?");
         $stmt->bind_param("ii", $image_id, $user_id);
         $stmt->execute();
 
-        if (file_exists($img_path)) {
-            unlink($img_path);
-        }
-
         echo json_encode(['success' => true]);
         exit;
+
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         exit;
     }
 }
+
+
+
 
 // ✅ Fetch uploaded images from profile_images_tbl
 $res = $conn->query("SELECT * FROM profile_images_tbl WHERE user_id = $user_id ORDER BY created_at DESC");
@@ -239,16 +239,235 @@ $images = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
 
 ?>
 
+<body>
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Admin Gallery Uploader</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<div class="container">
+  <div class="profile-section">
+    <div class="profile-photo">
+      <div class="profile-photo-container" id="editProfileBtn">
+        <!-- <img src="../uploads/<?= !empty($profile['profile_pic']) ? htmlspecialchars($profile['profile_pic']) : 'default-profile.jpg' ?>" alt="Profile Photo"> -->
 
-</head>
+
+        <?php if (!empty($profile['profile_pic'])): ?>
+      <div style="text-align: center; margin-bottom: 10px;">
+        <img src="<?= htmlspecialchars($profile['profile_pic']) ?>" alt="Profile Image">
+      </div>
+    <?php endif; ?>
+      </div>
+    </div>
+    
+    <div class="profile-info">
+      <div class="profile-name">
+        <h1><?= htmlspecialchars($profile['fname'] ?? 'First Name') ?></h1>
+        <h1><?= htmlspecialchars($profile['lname'] ?? 'Last Name') ?></h1>
+      </div>
+      
+      <div class="social-boxes">
+        <div class="social-box" onclick="document.getElementById('facebookModal').classList.add('show')">
+          <i class="fab fa-facebook"></i>
+          <div class="social-input">
+            <?= !empty($profile['facebook']) ? htmlspecialchars($profile['facebook']) : 'Add your Facebook here' ?>
+          </div>
+        </div>
+        <div class="social-box" onclick="document.getElementById('instagramModal').classList.add('show')">
+          <i class="fab fa-instagram"></i>
+          <div class="social-input">
+            <?= !empty($profile['instagram']) ? htmlspecialchars($profile['instagram']) : 'Add your Instagram here' ?>
+          </div>
+        </div>
+        <div class="social-box" onclick="document.getElementById('twitterModal').classList.add('show')">
+          <i class="fab fa-twitter"></i>
+          <div class="social-input">
+            <?= !empty($profile['twitter']) ? htmlspecialchars($profile['twitter']) : 'Add your Twitter here' ?>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="upload-form-container">
+      <?php if (!empty($message)): ?>
+        <p class="message"><?= $message ?></p>
+      <?php endif; ?>
+      <form class="upload-form" method="POST" enctype="multipart/form-data">
+        <label for="category">Category</label>
+        <select name="category" id="category" required>
+          <option value="">Select Type</option>
+          <option value="portrait">Portrait</option>
+          <option value="landscape">Landscape</option>
+        </select>
+        <label for="gallery_image">Select Image</label>
+        <input type="file" name="gallery_image" id="gallery_image" accept="image/*" required>
+        <button type="submit" name="upload_gallery">Upload</button>
+      </form>
+    </div>
+  </div>
+
+
+<div class="gallery-container">
+    <?php foreach ($images as $img): ?>
+        <?php $cloudinaryUrl = htmlspecialchars($img['p_images']); ?>
+        <div class="gallery-item" onclick="openFullScreen('<?= $cloudinaryUrl ?>')">
+            <div class="delete-btn" onclick="event.stopPropagation(); deleteImage(<?= $img['id'] ?>, this)">
+                <i class="fas fa-times"></i>
+            </div>
+            <img src="<?= $cloudinaryUrl ?>" alt="">
+        </div>
+    <?php endforeach; ?>
+</div>
+
+<!-- Fullscreen Modal -->
+<div id="fullscreenModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); justify-content:center; align-items:center; z-index:9999;">
+    <img id="fullscreenImg" src="" style="max-width:90%; max-height:90%; border:6px solid #fff; border-radius:8px; box-shadow:0 0 20px rgba(0,0,0,0.6);">
+    <span onclick="closeFullScreen()" style="position:absolute; top:20px; right:30px; font-size:2em; color:#fff; cursor:pointer;">&times;</span>
+</div>
+
+
+<script>
+function openFullScreen(imgSrc) {
+    const modal = document.getElementById('fullscreenModal');
+    const img = document.getElementById('fullscreenImg');
+    img.src = imgSrc;
+    modal.style.display = 'flex';
+}
+
+function closeFullScreen() {
+    const modal = document.getElementById('fullscreenModal');
+    modal.style.display = 'none';
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeFullScreen();
+});
+</script>
+
+
+<!-- Profile Modal -->
+<div class="modal" id="profileModal">
+  <div class="modal-content">
+    <span class="close" id="closeProfile">&times;</span>
+    <h3>Edit Profile</h3>
+
+    <?php if (!empty($profile['profile_pic'])): ?>
+      <div style="text-align: center; margin-bottom: 10px;">
+        <img src="<?= htmlspecialchars($profile['profile_pic']) ?>" alt="Profile Image" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover;">
+      </div>
+    <?php endif; ?>
+
+    <form method="POST" enctype="multipart/form-data">
+      <input type="file" name="profile_img" accept="image/*">
+      <input type="text" name="name" placeholder="First Name" value="<?= htmlspecialchars($profile['fname'] ?? '') ?>" required>
+      <input type="text" name="subname" placeholder="Last Name" value="<?= htmlspecialchars($profile['lname'] ?? '') ?>" required>
+      <button type="submit" name="update_profile">Save</button>
+    </form>
+  </div>
+</div>
+
+
+<!-- Facebook Modal -->
+  <div class="modal" id="facebookModal">
+    <div class="modal-content">
+      <span class="close" onclick="document.getElementById('facebookModal').classList.remove('show')">&times;</span>
+      <h3>Edit Facebook Link</h3>
+      <form method="POST">
+        <input type="text" name="facebook" placeholder="Facebook URL" value="<?= !empty($profile['facebook']) ? htmlspecialchars($profile['facebook']) : '' ?>">
+        <button type="submit" name="update_facebook">Save</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Instagram Modal -->
+  <div class="modal" id="instagramModal">
+    <div class="modal-content">
+      <span class="close" onclick="document.getElementById('instagramModal').classList.remove('show')">&times;</span>
+      <h3>Edit Instagram Link</h3>
+      <form method="POST">
+        <input type="text" name="instagram" placeholder="Instagram URL" value="<?= !empty($profile['instagram']) ? htmlspecialchars($profile['instagram']) : '' ?>">
+        <button type="submit" name="update_instagram">Save</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Twitter Modal -->
+  <div class="modal" id="twitterModal">
+    <div class="modal-content">
+      <span class="close" onclick="document.getElementById('twitterModal').classList.remove('show')">&times;</span>
+      <h3>Edit Twitter Link</h3>
+      <form method="POST">
+        <input type="text" name="twitter" placeholder="Twitter URL" value="<?= !empty($profile['twitter']) ? htmlspecialchars($profile['twitter']) : '' ?>">
+        <button type="submit" name="update_twitter">Save</button>
+      </form>
+    </div>
+  </div>
+
+
+<script>
+  // Modal functionality
+  document.getElementById('editProfileBtn').onclick = function() {
+    document.getElementById('profileModal').classList.add('show');
+  };
+  
+  document.getElementById('closeProfile').onclick = function() {
+    document.getElementById('profileModal').classList.remove('show');
+  };
+  
+  // Close modal when clicking outside
+  window.addEventListener('click', function(e) {
+    if (e.target === document.getElementById('profileModal')) {
+      document.getElementById('profileModal').classList.remove('show');
+    }
+    if (e.target === document.getElementById('facebookModal')) {
+      document.getElementById('facebookModal').classList.remove('show');
+    }
+    if (e.target === document.getElementById('instagramModal')) {
+      document.getElementById('instagramModal').classList.remove('show');
+    }
+    if (e.target === document.getElementById('twitterModal')) {
+      document.getElementById('twitterModal').classList.remove('show');
+    }
+  });
+
+// Delete image function 
+function deleteImage(imageId, element) {
+    if (!imageId) {
+        console.error('No image ID provided');
+        return;
+    }
+
+    if (confirm('Are you sure you want to delete this image?')) {
+        // Create form data
+        const formData = new FormData();
+        formData.append('delete_image', '1');
+        formData.append('image_id', imageId);
+        
+        fetch(window.location.href, {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => response.text())
+        .then(text => {
+            console.log("RAW SERVER RESPONSE:", text); // 👈 Add this line
+
+            try {
+                const data = JSON.parse(text);
+                if (data.success) {
+                    element.closest('.gallery-item').remove();
+                } else {
+                    alert('Error deleting image: ' + (data.message || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error('JSON parse error:', err);
+                alert('Invalid response from server.');
+            }
+        })
+
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while deleting the image');
+        });
+
+    }
+}
+</script>
 
 <style>
  body {
@@ -556,214 +775,6 @@ $images = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
     }
   }
 </style>
-<body>
-
-<div class="container">
-  <div class="profile-section">
-    <div class="profile-photo">
-      <div class="profile-photo-container" id="editProfileBtn">
-        <img src="../uploads/<?= !empty($profile['profile_pic']) ? htmlspecialchars($profile['profile_pic']) : 'default-profile.jpg' ?>" alt="Profile Photo">
-      </div>
-    </div>
-    
-    <div class="profile-info">
-      <div class="profile-name">
-        <h1><?= htmlspecialchars($profile['fname'] ?? 'First Name') ?></h1>
-        <h1><?= htmlspecialchars($profile['lname'] ?? 'Last Name') ?></h1>
-      </div>
-      
-      <div class="social-boxes">
-        <div class="social-box" onclick="document.getElementById('facebookModal').classList.add('show')">
-          <i class="fab fa-facebook"></i>
-          <div class="social-input">
-            <?= !empty($profile['facebook']) ? htmlspecialchars($profile['facebook']) : 'Add your Facebook here' ?>
-          </div>
-        </div>
-        <div class="social-box" onclick="document.getElementById('instagramModal').classList.add('show')">
-          <i class="fab fa-instagram"></i>
-          <div class="social-input">
-            <?= !empty($profile['instagram']) ? htmlspecialchars($profile['instagram']) : 'Add your Instagram here' ?>
-          </div>
-        </div>
-        <div class="social-box" onclick="document.getElementById('twitterModal').classList.add('show')">
-          <i class="fab fa-twitter"></i>
-          <div class="social-input">
-            <?= !empty($profile['twitter']) ? htmlspecialchars($profile['twitter']) : 'Add your Twitter here' ?>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    <div class="upload-form-container">
-      <?php if (!empty($message)): ?>
-        <p class="message"><?= $message ?></p>
-      <?php endif; ?>
-      <form class="upload-form" method="POST" enctype="multipart/form-data">
-        <label for="category">Category</label>
-        <select name="category" id="category" required>
-          <option value="">Select Type</option>
-          <option value="portrait">Portrait</option>
-          <option value="landscape">Landscape</option>
-        </select>
-        <label for="gallery_image">Select Image</label>
-        <input type="file" name="gallery_image" id="gallery_image" accept="image/*" required>
-        <button type="submit" name="upload_gallery">Upload</button>
-      </form>
-    </div>
-  </div>
-
-
-<div class="gallery-container">
-    <?php foreach ($images as $img): ?>
-        <div class="gallery-item" onclick="openFullScreen('uploads/profile_gallery/<?= htmlspecialchars($img['p_images']) ?>')">
-            <div class="delete-btn" onclick="event.stopPropagation(); deleteImage(<?= $img['id'] ?>, this)">
-                <i class="fas fa-times"></i>
-            </div>
-            <img src="uploads/profile_gallery/<?= htmlspecialchars($img['p_images']) ?>" alt="">
-        </div>
-    <?php endforeach; ?>
-</div>
-
-<!-- Fullscreen Modal -->
-<div id="fullscreenModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); justify-content:center; align-items:center; z-index:9999;">
-    <img id="fullscreenImg" src="" style="max-width:90%; max-height:90%; border:6px solid #fff; border-radius:8px; box-shadow:0 0 20px rgba(0,0,0,0.6);">
-    <span onclick="closeFullScreen()" style="position:absolute; top:20px; right:30px; font-size:2em; color:#fff; cursor:pointer;">&times;</span>
-</div>
-
-<script>
-function openFullScreen(imgSrc) {
-    const modal = document.getElementById('fullscreenModal');
-    const img = document.getElementById('fullscreenImg');
-    img.src = imgSrc;
-    modal.style.display = 'flex';
-}
-
-function closeFullScreen() {
-    const modal = document.getElementById('fullscreenModal');
-    modal.style.display = 'none';
-}
-
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeFullScreen();
-});
-</script>
-
-
-<!-- Profile Modal -->
-<div class="modal" id="profileModal">
-  <div class="modal-content">
-    <span class="close" id="closeProfile">&times;</span>
-    <h3>Edit Profile</h3>
-    <form method="POST" enctype="multipart/form-data">
-      <input type="file" name="profile_img" accept="image/*">
-      <input type="text" name="name" placeholder="First Name" value="<?= htmlspecialchars($profile['fname'] ?? '') ?>" required>
-      <input type="text" name="subname" placeholder="Last Name" value="<?= htmlspecialchars($profile['lname'] ?? '') ?>" required>
-      <button type="submit" name="update_profile">Save</button>
-    </form>
-  </div>
-</div>
-
-<!-- Facebook Modal -->
-  <div class="modal" id="facebookModal">
-    <div class="modal-content">
-      <span class="close" onclick="document.getElementById('facebookModal').classList.remove('show')">&times;</span>
-      <h3>Edit Facebook Link</h3>
-      <form method="POST">
-        <input type="text" name="facebook" placeholder="Facebook URL" value="<?= !empty($profile['facebook']) ? htmlspecialchars($profile['facebook']) : '' ?>">
-        <button type="submit" name="update_facebook">Save</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- Instagram Modal -->
-  <div class="modal" id="instagramModal">
-    <div class="modal-content">
-      <span class="close" onclick="document.getElementById('instagramModal').classList.remove('show')">&times;</span>
-      <h3>Edit Instagram Link</h3>
-      <form method="POST">
-        <input type="text" name="instagram" placeholder="Instagram URL" value="<?= !empty($profile['instagram']) ? htmlspecialchars($profile['instagram']) : '' ?>">
-        <button type="submit" name="update_instagram">Save</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- Twitter Modal -->
-  <div class="modal" id="twitterModal">
-    <div class="modal-content">
-      <span class="close" onclick="document.getElementById('twitterModal').classList.remove('show')">&times;</span>
-      <h3>Edit Twitter Link</h3>
-      <form method="POST">
-        <input type="text" name="twitter" placeholder="Twitter URL" value="<?= !empty($profile['twitter']) ? htmlspecialchars($profile['twitter']) : '' ?>">
-        <button type="submit" name="update_twitter">Save</button>
-      </form>
-    </div>
-  </div>
-
-
-<script>
-  // Modal functionality
-  document.getElementById('editProfileBtn').onclick = function() {
-    document.getElementById('profileModal').classList.add('show');
-  };
-  
-  document.getElementById('closeProfile').onclick = function() {
-    document.getElementById('profileModal').classList.remove('show');
-  };
-  
-  // Close modal when clicking outside
-  window.addEventListener('click', function(e) {
-    if (e.target === document.getElementById('profileModal')) {
-      document.getElementById('profileModal').classList.remove('show');
-    }
-    if (e.target === document.getElementById('facebookModal')) {
-      document.getElementById('facebookModal').classList.remove('show');
-    }
-    if (e.target === document.getElementById('instagramModal')) {
-      document.getElementById('instagramModal').classList.remove('show');
-    }
-    if (e.target === document.getElementById('twitterModal')) {
-      document.getElementById('twitterModal').classList.remove('show');
-    }
-  });
-
-// Delete image function 
-function deleteImage(imageId, element) {
-    if (!imageId) {
-        console.error('No image ID provided');
-        return;
-    }
-
-    if (confirm('Are you sure you want to delete this image?')) {
-        // Create form data
-        const formData = new FormData();
-        formData.append('delete_image', '1');
-        formData.append('image_id', imageId);
-        
-        fetch(window.location.href, {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.success) {
-                // Remove the image from the DOM
-                element.closest('.gallery-item').remove();
-            } else {
-                alert('Error deleting image: ' + (data.message || 'Unknown error'));
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('An error occurred while deleting the image');
-        });
-    }
-}
-</script>
 
 </body>
 <?php include 'footer.php'; ?>

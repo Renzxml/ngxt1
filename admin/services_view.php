@@ -134,7 +134,7 @@ while ($row = mysqli_fetch_assoc($result_gallery)) {
 </style>
 <body>
 <!-- Hero Header -->
-<div style="width: 100%; min-height: 320px; background: linear-gradient(to bottom, rgba(0,0,0,0.45) 60%, rgba(0,0,0,0.05) 100%), url('uploads/<?= htmlspecialchars($data['svs_logo']) ?>') center/cover no-repeat; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #fff; text-align: center; margin-bottom: 40px;">
+<div style="width: 100%; min-height: 320px; background: linear-gradient(to bottom, rgba(0,0,0,0.45) 60%, rgba(0,0,0,0.05) 100%), url('<?= htmlspecialchars($data['svs_logo']) ?>') center/cover no-repeat; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #fff; text-align: center; margin-bottom: 40px;">
     <h1 style="font-size: 2.5em; margin-bottom: 12px; text-shadow: 0 2px 12px rgba(0,0,0,0.25);">
         <?= htmlspecialchars($data['svs_title']) ?>
     </h1>
@@ -142,6 +142,7 @@ while ($row = mysqli_fetch_assoc($result_gallery)) {
         <?= nl2br(htmlspecialchars($data['svs_description'])) ?>
     </p>
 </div>
+
 
 <!-- Gallery Container -->
 <div class="gallery-container">

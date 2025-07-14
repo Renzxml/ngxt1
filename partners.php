@@ -316,10 +316,12 @@ $users = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 
 <div class="partners-cards">
 <?php foreach ($users as $user): 
-    $profilePath = (!empty($user['profile_pic']) && file_exists("uploads/" . $user['profile_pic']))
-        ? "uploads/" . $user['profile_pic']
-        : "../assets/profiles/default.png";
+    $profilePath = !empty($user['profile_pic']) 
+                ? htmlspecialchars($user['profile_pic']) 
+                : 'https://res.cloudinary.com/YOUR_CLOUD_NAME/image/upload/v1/uploads/gallery/profile_photos/default.png';
 ?>
+
+
     <div class="partner-card">
         <div class="cardprofile">
             <button class="mail" onclick="location.href='mailto:<?= htmlspecialchars($user['email']) ?>'">

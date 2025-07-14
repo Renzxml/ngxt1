@@ -58,6 +58,12 @@ if (!class_exists('db_class')) {
                 case 'cover_photo':
                     $folder = 'uploads/Gallery/cover_photos';
                     break;
+                case 'profile_photo':
+                    $folder = 'uploads/Gallery/profile_photos';
+                    break;
+                case 'profile_image':
+                    $folder = 'uploads/Gallery/profile_images';
+                    break;
                 case 'services_image':
                     $folder = 'uploads/Gallery/services_images';
                     break;
